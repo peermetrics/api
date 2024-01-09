@@ -1,0 +1,27 @@
+argon2-cffi
+Django<3.0
+gunicorn
+PyJWT==1.7.1
+PyYAML==5.3.1
+psycopg2-binary
+validators==0.14.2
+
+django-dirtyfields==1.4
+django-ratelimit==2.0.0
+django-cors-headers
+django-redis
+mock
+
+# needed if google cloud tasks are used
+# google-cloud-tasks==2.9.0
+
+# needed if google cloud logging is used
+# google-cloud-logging
+
+# django-server-timing
+
+# TODO: when implementing opentelemetry, we will need these packages
+# opentelemetry-api
+# opentelemetry-sdk
+# opentelemetry-instrumentation-django
+# opentelemetry-exporter-gcp-trace

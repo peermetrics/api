@@ -1,0 +1,55 @@
+
+# Example file for deploying to Google App Engine
+
+runtime: python38
+service: api
+
+instance_class: F1
+
+# Automatic scaling example
+# https://cloud.google.com/appengine/docs/standard/python3/config/appref#automatic_scaling
+# automatic_scaling:
+#   max_concurrent_requests: 60
+#   max_instances: 10
+#   max_pending_latency: 300ms
+#   min_pending_latency: 100ms
+
+entrypoint: gunicorn -b :$PORT --workers 2 --timeout 300 --log-level info api.wsgi:application
+
+inbound_services:
+- warmup
+
+handlers:
+- url: /static
+  static_dir: static
+
+- url: /robots.txt
+  static_files: static/robots.txt
+  upload: static/robots.txt
+
+- url: /.*
+  secure: always
+  script: auto
+
+# In order to connect to Cloud SQL you need to create a VPC connector
+vpc_access_connector:
+  name: projects/[project id]/locations/[region]/connectors/[connector name]
+
+env_variables:
+  DEBUG: 'False'
+  DJANGO_SETTINGS_MODULE: api.settings
+  SECRET_KEY: 'secret'
+  INIT_TOKEN_SECRET: 'secret'
+  SESSION_TOKEN_SECRET: 'secret'
+  WEB_DOMAIN: 'localhost:8080'
+
+  # DB config
+  DATABASE_HOST: '/cloudsql/[project id]:[region]:[db name]'
+  DATABASE_PORT: '5432'
+  DATABASE_USER: 'rtcuser'
+  DATABASE_PASSWORD: 'rtcuser'
+  DATABASE_NAME: 'rtcstats'
+  CONN_MAX_AGE: '14400'
+
+  # Redis config
+  REDIS_HOST: 'redis://127.0.0.1:6379'
