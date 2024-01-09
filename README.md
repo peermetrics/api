@@ -1,13 +1,41 @@
 # API server
 
-This folder contains code for the API server.
+**Note**: this represents a part of the peer metrics WebRTC service. Check out the full project [here](https://github.com/peermetrics/peermetrics).
+
+This folder contains code for the API server used to ingest the metrics sent by the [SDK](https://github.com/peermetrics/sdk-js).
+
+* [How it works](#how-it-works)
+* [How to run locally](#how-to-run-locally)
+* [Tech stack](#tech-stack)
+  * [Models](#models)
+        * [Organization](#organization)
+        * [App](#app)
+        * [Conference](#conference)
+        * [Participant](#participant)
+        * [Session](#session)
+        * [GenericEvent](#genericevent)
+  * [Routes](#routes)
+        * [Public](#public)
+        * [Private](#private)
+
+## How it works
 
 This is a public API endpoint that has two functions:
 
 - ingesting data collected by the SDK
 - used for data query by `web`
 
-In addition to this, the api has the admin interface.
+In addition to this, the api has the django admin interface to check the raw data collected.
+
+## How to run locally
+
+To run this locally check the main [project page](https://github.com/peermetrics/peermetrics).
+
+## Tech stack
+
+- Language: Python 3.8
+- Framework: Django
+- DB: Postgres
 
 ### Models
 
@@ -39,15 +67,11 @@ A session is the presence of a participants in a conference. He can have multipl
 
 This model represents all the events that we save during a call. We differentiate between them by the `category` attribute.
 
-##### User
-
-A user that is registered with our app.
-
 ### Routes
 
-We can group the routes into 2 categories: public ones (used by the SDK) and private (used accounts to query data for the charts).
+We can group the routes into 2 categories: **public**  (used by the SDK) and **private** (used accounts to query data for the charts).
 
-###### public
+##### Public
 
 - `/initialize`: first endpoint hit by SDK. checks that it has a valid `api_key`, etc. returns the token
   - `POST`
@@ -65,7 +89,7 @@ We can group the routes into 2 categories: public ones (used by the SDK) and pri
   - `POST`: create a new session
   - `PUT`: update a participant's session
 
-###### private
+##### Private
 
 - `/sessions`: used to get participant sessions
   - `GET`, arguments:
@@ -74,13 +98,13 @@ We can group the routes into 2 categories: public ones (used by the SDK) and pri
     - `appId`
 - `/sessions/<uuid:pk>`: get a specific session
   - `GET`
-- `/organizations`: used to get a user organization
+- `/organizations`: used to get a user's organizations
   - `POST`
 - `/organizations/<uuid:pk>`: get a specific org
   - `GET`
   - `PUT`
   - `DELETE`
-- `/apps`: get a user organization
+- `/apps`: get a user's apps
   - - `POST`
 - `/apps/<uuid:pk>`
   - `GET`
@@ -104,9 +128,3 @@ We can group the routes into 2 categories: public ones (used by the SDK) and pri
 - `/search`
   - `GET`, arguments
     - `query`
-- `/subscription/<uuid:pk>`
-  - `PUT`
-- `/billing/payment-token`
-  - `GET`
-- `/billing/payment-method`
-  - `POST`
