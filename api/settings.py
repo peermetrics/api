@@ -162,6 +162,8 @@ EVENT_CATEGORIES = {
     'stats': 'S',
 }
 
+USE_EXTERNAL_GEOIP_PROVIDER = os.getenv('USE_EXTERNAL_GEOIP_PROVIDER', False) == 'True'
+
 # geo ip data
 GEOIP_PROVIDERS = [{
     'name': 'ipstack',
@@ -172,16 +174,6 @@ GEOIP_PROVIDERS = [{
 MAX_SEARCH_RESULTS = 5
 
 RATELIMIT_FAIL_OPEN = True
-
-EMAIL_TEMPLATES = {
-    'welcome': 'd-7a249bc7f4014f1fb031fb412171d8b4',
-    'invite': 'd-d7bc3185c9af46df82436e81f249161d',
-    'password_reset': 'd-992337686989461eab92e77ffce0ea87',
-    'verify_account': 'd-42208ba63e7641c095dac3c622fbd49f',
-    'payment_failed': 'd-3b832541e5164266862574838e1177a0',
-    'billing_period_started': 'd-7f8a271cd9d748d59a56908aad8e0fa0',
-    'billing_period_ends_soon': 'd-406f9220e1c841329499600972490cd5',
-}
 
 WEB_DOMAIN = os.getenv('WEB_DOMAIN')
 

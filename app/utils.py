@@ -314,7 +314,7 @@ def get_geoip_data(headers, ip_address):
         }
 
     # if we have an ip address, try and get geoip from a provider
-    elif ip_address:
+    elif ip_address and settings.USE_EXTERNAL_GEOIP_PROVIDER:
         provider = settings.GEOIP_PROVIDERS[0]
         url = provider['url'].format(ip_address)
 

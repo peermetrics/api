@@ -107,9 +107,8 @@ class AppsView(CrudView):
         if app_name:
             app.name = app_name
 
-        app_domain = request.request_data.get('domain', '')[:App._meta.get_field('domain').max_length]
-        if app_domain:
-            app.domain = app_domain
+        if 'domain' in request.request_data:
+            app.domain = request.request_data.get('domain', '')[:App._meta.get_field('domain').max_length]
 
         attr_white_list = [
             'interval',

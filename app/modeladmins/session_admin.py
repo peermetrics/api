@@ -6,7 +6,7 @@ from ..models.participant import Participant
 
 class SessionAdmin(admin.ModelAdmin):
     readonly_fields = ('conference', 'participant')
-    list_display = ['id', 'link_to_conference', 'link_to_participant', 'billed_time', 'created_at']
+    list_display = ['id', 'link_to_conference', 'link_to_participant', 'created_at']
     search_fields = ['id', 'conference__id', 'participant__id', 'conference__app__id']
     view_on_site = False
     ordering = ('-created_at',)

@@ -18,7 +18,6 @@ class User(AbstractUser, BaseModel):
     Fields:
         id: ID from db, UUID
         last_active: the last time the user was active, date
-        billing: billing information, dict
         notifications: notifications, dict
         is_verified: True if the user verified the provided email, bool
         days_filter: default number of days to look back when querying events, int
@@ -30,7 +29,6 @@ class User(AbstractUser, BaseModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     last_active = models.DateField(default=datetime.datetime.utcnow, null=True, blank=True)
-    billing = JSONField(null=True, blank=True, default=dict)
     notifications = JSONField(null=True, blank=True, default=dict)
     is_verified = models.BooleanField(default=False)
 

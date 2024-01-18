@@ -30,9 +30,8 @@ class Session(BaseModel):
 
         start_time: when the session started
         end_time: when the session ended, most likely user left the page
-        billed_time: the number of seconds that we will bill in this session, int
-        billing_start: time when the billing started (first addPeer event received before this value is set),
-            is set back to None when the call ends and it is set back if another instance begins
+
+        call_start: when the user started to have an active connection
 
         session_info: info related to the session, dict
             {
@@ -59,11 +58,11 @@ class Session(BaseModel):
     app_version = models.CharField(null=True, blank=True, max_length=16)
     webrtc_sdk = models.CharField(null=True, blank=True, max_length=16)
 
-    billed_time = models.PositiveIntegerField(default=0)
     session_info = JSONField(null=True, blank=True, default=get_default_info)
     duration = models.PositiveIntegerField(default=0)
     end_time = models.DateTimeField(default=None, null=True, blank=True)
-    billing_start = models.DateTimeField(default=None, null=True, blank=True)
+
+    call_start = models.DateTimeField(default=None, null=True, blank=True)
 
     created_at = models.DateTimeField(default=datetime.datetime.utcnow)
     is_active = models.BooleanField(default=True)
@@ -76,8 +75,8 @@ class Session(BaseModel):
         return self.created_at
 
     def start_call(self, now):
-        if not self.billing_start:
-            self.billing_start = now
+        if not self.call_start:
+            self.call_start = now
 
     def check_if_ended(self):
         """
@@ -88,26 +87,26 @@ class Session(BaseModel):
 
     def should_stop_call(self, now):
         """
-        If it detects that a conference has ended, marks it as done
+        If we detect that all connections are terminated, mark the as done
         """
+
         if self.check_if_ended():
             # this can happen if the user had not active connections during a session
-            if not self.billing_start:
+            if not self.call_start:
                 # only log if this is actually the case
                 if self.connections.count() != 0:
-                    logging.warning('billing_start is None at the end of the session')
+                    logging.debug('call_start is None at the end of the session')
 
-                self.billing_start = now
+                self.call_start = now
 
-            # compute how many seconds we should bill in this session
-            time_to_add = int((now - self.billing_start).total_seconds())
-            self.billed_time += time_to_add
+            # compute how many seconds the user had an active connection
+            time_to_add = int((now - self.call_start).total_seconds())
 
             # add minutes to app
             App.add_minutes(now, self, time_to_add)
 
-            # reset billing time
-            self.billing_start = None
+            # reset call start timestamp
+            self.call_start = None
 
     def end_session(self, now):
         if not self.end_time:

@@ -71,7 +71,7 @@ class App(BaseModel):
                     contains a delay)
         :param session: the session which has ended
 
-        :param minutes_to_add: the time to add for billing
+        :param minutes_to_add: the time of used minutes
         """
 
         real_today = datetime.datetime.utcnow().date()

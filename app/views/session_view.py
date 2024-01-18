@@ -77,8 +77,8 @@ class SessionView(GenericView):
                 status=200,
                 content=serialize(
                     objs,
-                    blacklist=('billing_start', 'billed_time', 'constraints'),
-                    expand_fields=('issues', ),
+                    blacklist=('constraints',),
+                    expand_fields=('issues',),
                 )
             )
 
