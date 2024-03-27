@@ -81,8 +81,6 @@ def get_event_request_body(
         'eventName': event_name,
     }
 
-    print(f'get_event_request_body: {event_name} {peer} {connection_id} {token}')
-
     return data
 
 

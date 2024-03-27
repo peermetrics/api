@@ -1,6 +1,7 @@
 # API server
 
-**Note**: this represents a part of the peer metrics WebRTC service. Check out the full project [here](https://github.com/peermetrics/peermetrics).
+> [!Note]
+> This repo is only one part of the bigger peer metrics WebRTC monitoring service. Check out the full project [here](https://github.com/peermetrics/peermetrics).
 
 This folder contains code for the API server used to ingest the metrics sent by the [SDK](https://github.com/peermetrics/sdk-js).
 
@@ -8,15 +9,17 @@ This folder contains code for the API server used to ingest the metrics sent by 
 * [How to run locally](#how-to-run-locally)
 * [Tech stack](#tech-stack)
   * [Models](#models)
-        * [Organization](#organization)
-        * [App](#app)
-        * [Conference](#conference)
-        * [Participant](#participant)
-        * [Session](#session)
-        * [GenericEvent](#genericevent)
+       * [Organization](#organization)
+       * [App](#app)
+       * [Conference](#conference)
+       * [Participant](#participant)
+       * [Session](#session)
+       * [GenericEvent](#genericevent)
+
   * [Routes](#routes)
-        * [Public](#public)
-        * [Private](#private)
+       * [Public](#public)
+       * [Private](#private)
+
 
 ## How it works
 

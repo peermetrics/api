@@ -180,6 +180,7 @@ class JobWebhookView(View):
                 try:
                     emos_score = JobWebhookView.compute_emos(event_data, response_object[connection_id][-1]['data']['remote'])
                 except Exception as e:
+                    log.error(f'Error while processing data for eMOS score: {e}')
                     pass
 
                 track_kind = event_data.get('kind')
