@@ -16,13 +16,20 @@ ENV PYTHONUNBUFFERED 1
 
 RUN apk add --update --no-cache --virtual .tmp-build-deps \
     gcc libc-dev linux-headers postgresql-dev \
-    && apk add libffi-dev
+    && apk add libffi-dev netcat-openbsd
 
 # install dependencies
 RUN pip install --upgrade pip
 
-# copy whole project to your docker home directory. 
+# copy whole project to your docker home directory.
 COPY . $DockerHOME
 
 # run this command to install all dependencies
 RUN pip install -r requirements.txt
+
+# copy entrypoint script and make it executable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# set entrypoint
+ENTRYPOINT ["/entrypoint.sh"]

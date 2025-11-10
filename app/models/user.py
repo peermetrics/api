@@ -17,6 +17,7 @@ class User(AbstractUser, BaseModel):
 
     Fields:
         id: ID from db, UUID
+        organization: the organization this user belongs to, fk
         last_active: the last time the user was active, date
         notifications: notifications, dict
         is_verified: True if the user verified the provided email, bool
@@ -28,6 +29,14 @@ class User(AbstractUser, BaseModel):
         db_table = 'users'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.ForeignKey(
+        'Organization',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+        help_text='The organization this user belongs to'
+    )
     last_active = models.DateField(default=datetime.datetime.utcnow, null=True, blank=True)
     notifications = JSONField(null=True, blank=True, default=dict)
     is_verified = models.BooleanField(default=False)
