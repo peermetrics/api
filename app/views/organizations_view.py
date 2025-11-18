@@ -7,6 +7,7 @@ from ..models.organization import Organization
 from ..utils import JSONHttpResponse, serialize, validate_string
 from .crud_view import CrudView
 
+
 class OrganizatonsView(CrudView):
     """
     Endpoint for editing, creating and retrieving organizations.
@@ -40,6 +41,9 @@ class OrganizatonsView(CrudView):
         organization.name = organization_name[:Organization._meta.get_field('name').max_length]
 
         organization.save()
+
+        request.user.organization = organization
+        request.user.save()
 
         return JSONHttpResponse(
             status=200,
