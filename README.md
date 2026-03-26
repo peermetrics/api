@@ -68,55 +68,87 @@ Before running the API server locally, ensure you have the following installed:
 
 The application uses environment variables for configuration. Copy the `.env` file and configure the following key variables:
 
+The table below lists all environment variables used by the API. Variables marked as **required** must be set for the application to start.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| **Django Core** | | | |
+| `DEBUG` | No | `False` | Enable Django debug mode. Set to `True` for development. |
+| `DJANGO_SETTINGS_MODULE` | Yes | - | Must be set to `api.settings`. |
+| `SECRET_KEY` | Yes | - | Django secret key for cryptographic signing. Use a long random string in production. |
+| `ALLOWED_HOSTS` | No | `*` | Comma-separated list of allowed hostnames. Defaults to allow all. |
+| **Authentication** | | | |
+| `INIT_TOKEN_SECRET` | Yes | - | Secret used to sign JWT tokens returned by the `/initialize` endpoint. |
+| `SESSION_TOKEN_SECRET` | Yes | - | Secret used to sign JWT tokens returned by the `/sessions` endpoint. |
+| **Admin User** | | | |
+| `DEFAULT_ADMIN_USERNAME` | No | `admin` | Username for the auto-created admin account. |
+| `DEFAULT_ADMIN_PASSWORD` | No | `admin` | Password for the auto-created admin account. Change in production. |
+| `DEFAULT_ADMIN_EMAIL` | No | `admin@admin.com` | Email for the auto-created admin account. |
+| **Web Domain** | | | |
+| `WEB_DOMAIN` | Yes | - | Domain where the web dashboard is hosted (e.g. `localhost:8080` or `peermetrics.example.com`). Used for CORS and generating links. |
+| **Database** | | | |
+| `DATABASE_HOST` | Yes | - | PostgreSQL server hostname. |
+| `DATABASE_PORT` | Yes | - | PostgreSQL server port (typically `5432`). |
+| `DATABASE_USER` | Yes | - | PostgreSQL username. |
+| `DATABASE_PASSWORD` | Yes | - | PostgreSQL password. |
+| `DATABASE_NAME` | Yes | - | PostgreSQL database name. |
+| `CONN_MAX_AGE` | Yes | - | Database connection lifetime in seconds (e.g. `600`). Set to `0` to close connections after each request. |
+| **Redis** | | | |
+| `REDIS_HOST` | No | - | Redis connection URL (e.g. `redis://127.0.0.1:6379`). If not set, caching is disabled. For TLS use `rediss://`. |
+| **GeoIP / Map** | | | |
+| `USE_EXTERNAL_GEOIP_PROVIDER` | No | `False` | Set to `True` to enable GeoIP lookups for participant location data. If not enabled, the map on the dashboard will be empty unless deployed on Google App Engine. |
+| `IPSTACK_URL` | No | - | Base URL for the ipstack API. Should be set to `http://api.ipstack.com`. Note: ipstack's free plan only supports HTTP, not HTTPS. Required when `USE_EXTERNAL_GEOIP_PROVIDER` is `True`. |
+| `IPSTACK_ACCESS_KEY` | No | - | Your ipstack API access key. Get one at [ipstack.com/signup](https://ipstack.com/signup). Required when `USE_EXTERNAL_GEOIP_PROVIDER` is `True`. |
+| **Data Management** | | | |
+| `POST_CONFERENCE_CLEANUP` | No | `False` | If `True`, deletes raw stats events after a conference ends to save storage. Conference summaries are kept. |
+| **Google App Engine** | | | |
+| `GAE_APPLICATION` | No | - | Set automatically by Google App Engine. Do not set manually. |
+| `USE_GOOGLE_CLOUD_LOGGING` | No | `False` | Set to `True` to send logs to Google Cloud Logging. Only works when deployed on GCP. |
+| **Google Cloud Tasks** | | | |
+| `USE_GOOGLE_TASK_QUEUE` | No | `False` | Set to `True` to use Google Cloud Tasks for background processing. |
+| `GOOGLE_TASK_QUEUE_NAME` | No | - | Name of the Cloud Tasks queue (e.g. `queue-1`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
+| `APP_ENGINE_LOCATION` | No | - | App Engine location (e.g. `us-east1`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
+| `TASK_QUEUE_DOMAIN` | No | - | Domain for task queue callbacks (e.g. `https://api.example.com/`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
+
+**Example `.env` file for local development:**
+
 ```bash
-# Django settings
+# Django
 DEBUG=True
 DJANGO_SETTINGS_MODULE=api.settings
 SECRET_KEY=your-secret-key-here
 
-# JWT token secrets - used for authentication
+# Authentication
 INIT_TOKEN_SECRET=your-init-token-secret
 SESSION_TOKEN_SECRET=your-session-token-secret
 
-# Web domain for CORS
+# Admin credentials (change in production)
+DEFAULT_ADMIN_USERNAME=admin
+DEFAULT_ADMIN_PASSWORD=admin
+DEFAULT_ADMIN_EMAIL=admin@admin.com
+
+# Web domain
 WEB_DOMAIN=localhost:8080
 
-# Redis configuration (optional)
-REDIS_HOST=redis://127.0.0.1:6379
-
-# Database configuration
+# Database
 DATABASE_HOST=postgres
 DATABASE_PORT=5432
 DATABASE_USER=peeruser
 DATABASE_PASSWORD=peeruser
 DATABASE_NAME=peerdb
-CONN_MAX_AGE=14400
+CONN_MAX_AGE=600
 
-# Optional: Post-conference cleanup
+# Redis (optional)
+REDIS_HOST=redis://127.0.0.1:6379
+
+# Post-conference cleanup
 POST_CONFERENCE_CLEANUP=False
 
-# GeoIP Provider (optional, enables map/location features)
+# GeoIP (optional, enables map/location on dashboard)
 USE_EXTERNAL_GEOIP_PROVIDER=True
 IPSTACK_URL=http://api.ipstack.com
 IPSTACK_ACCESS_KEY=your-ipstack-access-key
 ```
-
-**Key Environment Variables Explained:**
-
-- `INIT_TOKEN_SECRET`: Secret used to sign JWT tokens returned by the `/initialize` endpoint
-- `SESSION_TOKEN_SECRET`: Secret used to sign JWT tokens returned by the `/sessions` endpoint
-- `WEB_DOMAIN`: Domain for CORS configuration, allows the web interface to query the API
-- `DATABASE_*`: PostgreSQL connection parameters
-- `REDIS_HOST`: Redis server location for caching (improves performance)
-- `POST_CONFERENCE_CLEANUP`: If `True`, deletes unnecessary stats events after a conference ends
-
-**GeoIP / Map Configuration:**
-
-The map and location features on the dashboard require a GeoIP provider to resolve participant IP addresses to geographic coordinates. Currently [ipstack](https://ipstack.com/) is supported.
-
-- `USE_EXTERNAL_GEOIP_PROVIDER`: Set to `True` to enable GeoIP lookups for participant location data. If not enabled, the map on the dashboard will be empty unless the app is deployed on Google App Engine (which provides location headers automatically).
-- `IPSTACK_URL`: The base URL for the ipstack API. Should be set to `http://api.ipstack.com`. Note: ipstack's free plan only supports HTTP, not HTTPS.
-- `IPSTACK_ACCESS_KEY`: Your ipstack API access key. Get one at [ipstack.com/signup](https://ipstack.com/signup). Required when `USE_EXTERNAL_GEOIP_PROVIDER` is `True`.
 
 ### Database Setup
 
