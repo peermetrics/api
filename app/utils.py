@@ -316,15 +316,19 @@ def get_geoip_data(headers, ip_address):
     # if we have an ip address, try and get geoip from a provider
     elif ip_address and settings.USE_EXTERNAL_GEOIP_PROVIDER:
         provider = settings.GEOIP_PROVIDERS[0]
-        url = provider['url'].format(ip_address)
+        base_url = provider.get('url', '')
+        access_key = provider.get('access_key', '')
 
-        # in case the request fails
-        try:
-            response_data = json.loads(urllib.request.urlopen(url).read().decode('utf-8'))
+        if base_url and access_key:
+            url = '{}/{}?access_key={}'.format(base_url.rstrip('/'), ip_address, access_key)
 
-            geoip_data = {k: v for k, v in response_data.items() if k in geoip_data.keys()}
-        except Exception as e:
-            pass
+            try:
+                response_data = json.loads(urllib.request.urlopen(url).read().decode('utf-8'))
+
+                if 'error' not in response_data:
+                    geoip_data = {k: v for k, v in response_data.items() if k in geoip_data.keys()}
+            except Exception as e:
+                pass
 
     return geoip_data
 

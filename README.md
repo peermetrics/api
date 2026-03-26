@@ -94,6 +94,11 @@ CONN_MAX_AGE=14400
 
 # Optional: Post-conference cleanup
 POST_CONFERENCE_CLEANUP=False
+
+# GeoIP Provider (optional, enables map/location features)
+USE_EXTERNAL_GEOIP_PROVIDER=True
+IPSTACK_URL=http://api.ipstack.com
+IPSTACK_ACCESS_KEY=your-ipstack-access-key
 ```
 
 **Key Environment Variables Explained:**
@@ -104,6 +109,14 @@ POST_CONFERENCE_CLEANUP=False
 - `DATABASE_*`: PostgreSQL connection parameters
 - `REDIS_HOST`: Redis server location for caching (improves performance)
 - `POST_CONFERENCE_CLEANUP`: If `True`, deletes unnecessary stats events after a conference ends
+
+**GeoIP / Map Configuration:**
+
+The map and location features on the dashboard require a GeoIP provider to resolve participant IP addresses to geographic coordinates. Currently [ipstack](https://ipstack.com/) is supported.
+
+- `USE_EXTERNAL_GEOIP_PROVIDER`: Set to `True` to enable GeoIP lookups for participant location data. If not enabled, the map on the dashboard will be empty unless the app is deployed on Google App Engine (which provides location headers automatically).
+- `IPSTACK_URL`: The base URL for the ipstack API. Should be set to `http://api.ipstack.com`. Note: ipstack's free plan only supports HTTP, not HTTPS.
+- `IPSTACK_ACCESS_KEY`: Your ipstack API access key. Get one at [ipstack.com/signup](https://ipstack.com/signup). Required when `USE_EXTERNAL_GEOIP_PROVIDER` is `True`.
 
 ### Database Setup
 
