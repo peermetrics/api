@@ -109,6 +109,28 @@ The table below lists all environment variables used by the API. Variables marke
 | `GOOGLE_TASK_QUEUE_NAME` | No | - | Name of the Cloud Tasks queue (e.g. `queue-1`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
 | `APP_ENGINE_LOCATION` | No | - | App Engine location (e.g. `us-east1`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
 | `TASK_QUEUE_DOMAIN` | No | - | Domain for task queue callbacks (e.g. `https://api.example.com/`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
+| **Conference Cleanup** | | | |
+| `CONFERENCE_TIMEOUT_HOURS` | No | `4` | Close ongoing conferences with no activity for this many hours. |
+| `ENABLE_INLINE_CONFERENCE_CLEANUP` | No | `false` | Set to `true` to run cleanup in a background thread (dev/single-process only). |
+| `CONFERENCE_CLEANUP_INTERVAL_SECONDS` | No | `3600` | How often the inline cleanup runs in seconds. Set to `0` to disable. Only applies when `ENABLE_INLINE_CONFERENCE_CLEANUP` is `true`. |
+
+### Stale Conference Cleanup
+
+Conferences can get stuck as "Ongoing" if the client fails to send the end signal (browser tab closed, network drop). The `cleanup_stale_conferences` management command closes conferences with no activity for a configurable period.
+
+```bash
+python manage.py cleanup_stale_conferences              # default 4 hour threshold
+python manage.py cleanup_stale_conferences --hours 2    # custom threshold
+python manage.py cleanup_stale_conferences --dry-run    # preview without changes
+```
+
+**Development:** Set `ENABLE_INLINE_CONFERENCE_CLEANUP=true` to run the cleanup automatically in a background thread inside the API process.
+
+**Production (multi-worker):** Do not use the inline loop with multiple gunicorn workers as each worker runs its own cleanup loop. Instead, use an external scheduler:
+
+- **Kubernetes:** CronJob running `python manage.py cleanup_stale_conferences`
+- **Docker Compose:** Host cron or a sidecar container on a timer
+- **ECS:** Scheduled task via EventBridge
 
 **Example `.env` file for local development:**
 
