@@ -17,6 +17,15 @@ class UsersConfig(AppConfig):
     def ready(self):
         global _cleanup_started
 
+        # The inline cleanup loop is for dev/single-process only.
+        # In production with multiple gunicorn workers, each worker forks
+        # a separate process so the threading lock cannot prevent duplicate
+        # loops. Use an external scheduler instead:
+        #   python manage.py cleanup_stale_conferences
+        # Set ENABLE_INLINE_CONFERENCE_CLEANUP=true to enable the loop.
+        if os.getenv('ENABLE_INLINE_CONFERENCE_CLEANUP', '').lower() != 'true':
+            return
+
         interval = int(os.getenv('CONFERENCE_CLEANUP_INTERVAL_SECONDS', 3600))
         if interval <= 0:
             return
