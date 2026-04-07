@@ -147,7 +147,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT =  '/app/static'
 
 # Other App defaults
-DEFAULT_INTERVAL = int(os.getenv('STATS_INTERVAL_MS', 30000))
+DEFAULT_INTERVAL = int(os.getenv('STATS_INTERVAL_MS', 10000))
 
 BATCH_CONNECTION_REQUESTS = os.getenv('BATCH_CONNECTION_REQUESTS', 'True').lower() == 'true'
 
