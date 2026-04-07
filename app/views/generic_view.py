@@ -5,6 +5,14 @@ from ratelimit import ALL
 from ..errors import PMError, METHOD_NOT_ALLOWED
 from ..logger import log
 
+
+def get_real_ip(group, request):
+    return (
+        request.META.get('HTTP_X_REAL_IP')
+        or request.META.get('REMOTE_ADDR', '')
+    ).strip()
+
+
 class Logger(object):
     """
     Special logger that is tied to a specific request
@@ -18,7 +26,7 @@ class Logger(object):
 
 class GenericView(RatelimitMixin, View):
     ratelimit_group = 'api'
-    ratelimit_key = 'ip'
+    ratelimit_key = get_real_ip
     ratelimit_rate = '2000/m'
     ratelimit_block = True
     ratelimit_method = ALL
