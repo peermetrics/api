@@ -149,7 +149,7 @@ STATIC_ROOT =  '/app/static'
 # Other App defaults
 DEFAULT_INTERVAL = int(os.getenv('STATS_INTERVAL_MS', 10000))
 
-BATCH_CONNECTION_REQUESTS = os.getenv('BATCH_CONNECTION_REQUESTS', 'True').lower() == 'true'
+BATCH_CONNECTION_REQUESTS = os.getenv('BATCH_CONNECTION_REQUESTS', 'False').lower() == 'true'
 
 INIT_TOKEN_SECRET = os.getenv('INIT_TOKEN_SECRET')
 SESSION_TOKEN_SECRET = os.getenv('SESSION_TOKEN_SECRET')
