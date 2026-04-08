@@ -12,7 +12,7 @@ from ..models.conference import Conference
 from ..models.connection import Connection
 from ..models.generic_event import GenericEvent
 from ..models.participant import Participant
-from ..utils import JSONHttpResponse, serialize, validate_string, validate_positive_number
+from ..utils import JSONHttpResponse, serialize, paginate_and_serialize, validate_string, validate_positive_number
 
 
 class EventView(GenericView):
@@ -52,12 +52,12 @@ class EventView(GenericView):
             raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
     @staticmethod
-    def retrieve_events(event_type=None, conference=None, participant=None, filters=None):
+    def retrieve_events(request, event_type=None, conference=None, participant=None, filters=None):
         """Used to return a JSON response of a specific event query"""
 
         objs = EventView.query_events(event_type, conference, participant, filters)
 
-        return JSONHttpResponse(content=serialize(objs))
+        return JSONHttpResponse(content=paginate_and_serialize(request, objs))
 
     @classmethod
     def get(cls, request):
@@ -97,6 +97,7 @@ class EventView(GenericView):
                     filters[key] = request.GET.get(rkey)
 
             return cls.retrieve_events(
+                request,
                 event_type=request.GET.get('type'),
                 conference=conference,
                 participant=participant,

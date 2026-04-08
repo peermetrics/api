@@ -17,4 +17,4 @@ class ConferenceEventsView(GenericView):
         except Conference.DoesNotExist:
             raise PMError(status=400, app_error=CONFERENCE_NOT_FOUND)
 
-        return EventView.retrieve_events(event_type=request.GET.get('type'), conference=conference)
+        return EventView.retrieve_events(request, event_type=request.GET.get('type'), conference=conference)
