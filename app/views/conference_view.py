@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 from ..errors import (INVALID_PARAMETERS, CONFERENCE_NOT_FOUND,
                       MISSING_PARAMETERS, PMError)
-from ..utils import JSONHttpResponse, serialize
+from ..utils import JSONHttpResponse, serialize, paginate_and_serialize
 from ..models.conference import Conference
 from .generic_view import GenericView
 
@@ -45,10 +45,7 @@ class ConferencesView(GenericView):
             raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
         return JSONHttpResponse(
-            content=serialize(
-                objs=objs,
-                expand_fields=('participants', 'issues'),
-            ),
+            content=paginate_and_serialize(request, objs),
         )
 
     @classmethod

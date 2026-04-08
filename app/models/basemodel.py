@@ -153,19 +153,15 @@ class BaseModel(DirtyFieldsMixin, models.Model):
     def filter(cls, *args, **kwargs):
         """
         Wrapper over the standard filter method that adds the is_active flag.
+        Returns a lazy QuerySet so that pagination (LIMIT/OFFSET) is applied
+        at the database level rather than in Python.
 
         :param args: the anonymous query criteria
         :param kwargs: the named (key word) query criteria
         :return the filtered QuerySet object
         """
         kwargs['is_active'] = True
-        filtered = cls.objects.filter(*args, **kwargs).order_by('created_at')
-        filtered.exists()
-
-        for obj in filtered:
-            obj.prepare()
-
-        return filtered
+        return cls.objects.filter(*args, **kwargs).order_by('created_at')
 
     def prepare(self):
         """

@@ -167,6 +167,8 @@ def serialize(
     final_alias_list.update(alias_list)
 
     for obj in objs:
+        if hasattr(obj, 'prepare'):
+            obj.prepare()
         d = {}
         for field in obj._meta.get_fields():
             key = field.name
@@ -345,3 +347,30 @@ def build_conference_summary(conference):
 
 def clamp(n, smallest, largest):
     return max(smallest, min(n, largest))
+
+
+def paginate_and_serialize(request, queryset, default_limit=50, max_limit=200, **serialize_kwargs):
+    """
+    Adds opt-in server-side pagination to list endpoints.
+    If ?limit= or ?offset= is present, returns { results: [...], count: N }.
+    Otherwise returns the original { data: [...] } format for backward compatibility.
+    """
+    limit_param = request.GET.get('limit')
+    offset_param = request.GET.get('offset')
+
+    if limit_param is not None or offset_param is not None:
+        try:
+            limit = clamp(int(limit_param or default_limit), 1, max_limit)
+            offset = max(0, int(offset_param or 0))
+        except (ValueError, TypeError):
+            from .errors import INVALID_PARAMETERS
+            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+
+        count = queryset.count()
+        page = queryset[offset:offset + limit]
+        return {
+            'results': serialize(page, **serialize_kwargs)['data'],
+            'count': count,
+        }
+    else:
+        return serialize(queryset, **serialize_kwargs)

@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 
 from ..errors import (INVALID_PARAMETERS, PARTICIPANT_NOT_FOUND,
                       MISSING_PARAMETERS, PMError)
-from ..utils import JSONHttpResponse, serialize
+from ..utils import JSONHttpResponse, serialize, paginate_and_serialize
 from ..models.participant import Participant
 from .generic_view import GenericView
 
@@ -43,9 +43,7 @@ class ParticipantsView(GenericView):
             raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
         return JSONHttpResponse(
-            content=serialize(
-                objs=objs,
-            ),
+            content=paginate_and_serialize(request, objs),
         )
 
     @classmethod

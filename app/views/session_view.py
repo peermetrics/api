@@ -11,7 +11,7 @@ from ..models.conference import Conference
 from ..models.participant import Participant
 from ..models.session import Session
 from ..utils import (JSONHttpResponse, generate_session_token, get_client_ip, get_geoip_data,
-                     serialize, validate_string, validate_meta, validate_positive_number)
+                     serialize, paginate_and_serialize, validate_string, validate_meta, validate_positive_number)
 from .generic_view import GenericView
 
 
@@ -75,8 +75,8 @@ class SessionView(GenericView):
         if objs is not None:
             return JSONHttpResponse(
                 status=200,
-                content=serialize(
-                    objs,
+                content=paginate_and_serialize(
+                    request, objs,
                     blacklist=('constraints',),
                     expand_fields=('issues',),
                 )
