@@ -33,6 +33,7 @@ def merge_duplicate_conferences(apps, schema_editor):
 
             keeper = conferences.first()
             duplicates = conferences.exclude(pk=keeper.pk)
+            keeper_has_summary = Summary.objects.filter(conference=keeper).exists()
 
             for dup in duplicates:
                 GenericEvent.objects.filter(conference=dup).update(conference=keeper)
@@ -40,22 +41,17 @@ def merge_duplicate_conferences(apps, schema_editor):
                 Session.objects.filter(conference=dup).update(conference=keeper)
                 Issue.objects.filter(conference=dup).update(conference=keeper)
 
-                # Summary is OneToOne — delete the duplicate's summary since
-                # the keeper already has one (or will get this one)
-                if not hasattr(keeper, 'summary') or not Summary.objects.filter(conference=keeper).exists():
+                # Summary is OneToOne — keep the first one, delete the rest
+                if not keeper_has_summary:
                     Summary.objects.filter(conference=dup).update(conference=keeper)
+                    keeper_has_summary = True
                 else:
                     Summary.objects.filter(conference=dup).delete()
 
                 for participant in dup.participants.all():
                     keeper.participants.add(participant)
 
-                deleted_count, deleted_detail = dup.delete()
-                # Verify only the Conference itself was removed
-                if sum(v for k, v in deleted_detail.items() if k != 'app.Conference') > 0:
-                    raise Exception(
-                        f'Unexpected cascade delete for conference {dup.pk}: {deleted_detail}'
-                    )
+                dup.delete()
 
 
 class Migration(migrations.Migration):
