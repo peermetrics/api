@@ -37,6 +37,7 @@ class Conference(BaseModel):
 
     class Meta:
         db_table = 'conference'
+        unique_together = (('conference_id', 'app'),)
 
     cache_keys = (
         sorted(('id',)),
