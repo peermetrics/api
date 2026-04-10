@@ -52,7 +52,8 @@ class ConferencesView(GenericView):
                 ),
                 participants_count=Subquery(
                     Participant.objects.filter(
-                        conferences=OuterRef('pk')
+                        conferences=OuterRef('pk'),
+                        is_active=True,
                     ).order_by().values('conferences').annotate(
                         cnt=Count('id', distinct=True)
                     ).values('cnt')[:1],
