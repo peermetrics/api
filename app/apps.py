@@ -11,6 +11,7 @@ _cleanup_started = False
 _cleanup_lock = threading.Lock()
 
 CLEANUP_LOCK_KEY = 'conference_cleanup_lock'
+CLEANUP_LOCK_TTL_SECONDS = 30 * 60
 
 
 class UsersConfig(AppConfig):
@@ -19,9 +20,6 @@ class UsersConfig(AppConfig):
     def ready(self):
         global _cleanup_started
 
-        # Each worker starts a cleanup thread, but only one acquires the Redis
-        # lock per cycle. Safe across multiple gunicorn workers and multiple
-        # API instances. Set ENABLE_INLINE_CONFERENCE_CLEANUP=true to enable.
         if os.getenv('ENABLE_INLINE_CONFERENCE_CLEANUP', '').lower() != 'true':
             return
 
@@ -35,29 +33,33 @@ class UsersConfig(AppConfig):
             _cleanup_started = True
 
         def cleanup_loop():
-            # Stagger startup so workers don't wake simultaneously
             time.sleep(60)
 
             from django.core.cache import cache
 
             while True:
                 try:
-                    # Try to acquire a distributed lock via Redis. cache.add()
-                    # maps to SET NX — only one process across the entire
-                    # deployment succeeds per cycle. Lock auto-expires at
-                    # interval so a crashed worker doesn't block future runs.
-                    lock_ttl = max(interval, 60)
-                    got_lock = cache.add(CLEANUP_LOCK_KEY, os.getpid(), timeout=lock_ttl)
+                    # django-redis lock: unique token per acquisition, atomic
+                    # compare-and-delete on release. blocking=False skips the
+                    # cycle if another worker holds the lock.
+                    lock = cache.lock(
+                        CLEANUP_LOCK_KEY,
+                        timeout=CLEANUP_LOCK_TTL_SECONDS,
+                    )
 
-                    if got_lock:
+                    if lock.acquire(blocking=False):
                         logger.info(f'[ConferenceCleanup] Acquired lock, running cleanup (pid={os.getpid()})')
                         try:
                             from app.management.commands.cleanup_stale_conferences import Command
                             hours = int(os.getenv('CONFERENCE_TIMEOUT_HOURS', 4))
                             Command().handle(hours=hours, dry_run=False, verbosity=0)
                         finally:
-                            # Release early so next cycle can run immediately
-                            cache.delete(CLEANUP_LOCK_KEY)
+                            try:
+                                lock.release()
+                            except Exception as e:
+                                logger.warning(
+                                    f'[ConferenceCleanup] Could not release lock, likely expired mid-run: {e}'
+                                )
                     else:
                         logger.debug(f'[ConferenceCleanup] Another worker holds the lock, skipping (pid={os.getpid()})')
                 except Exception as e:
