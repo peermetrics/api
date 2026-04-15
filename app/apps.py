@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 _cleanup_started = False
 _cleanup_lock = threading.Lock()
 
+CLEANUP_LOCK_KEY = 'conference_cleanup_lock'
+CLEANUP_LOCK_TTL_SECONDS = 30 * 60
+
 
 class UsersConfig(AppConfig):
     name = 'app'
@@ -17,12 +20,6 @@ class UsersConfig(AppConfig):
     def ready(self):
         global _cleanup_started
 
-        # The inline cleanup loop is for dev/single-process only.
-        # In production with multiple gunicorn workers, each worker forks
-        # a separate process so the threading lock cannot prevent duplicate
-        # loops. Use an external scheduler instead:
-        #   python manage.py cleanup_stale_conferences
-        # Set ENABLE_INLINE_CONFERENCE_CLEANUP=true to enable the loop.
         if os.getenv('ENABLE_INLINE_CONFERENCE_CLEANUP', '').lower() != 'true':
             return
 
@@ -38,11 +35,33 @@ class UsersConfig(AppConfig):
         def cleanup_loop():
             time.sleep(60)
 
+            from django.core.cache import cache
+
             while True:
                 try:
-                    from app.management.commands.cleanup_stale_conferences import Command
-                    hours = int(os.getenv('CONFERENCE_TIMEOUT_HOURS', 4))
-                    Command().handle(hours=hours, dry_run=False, verbosity=0)
+                    # django-redis lock: unique token per acquisition, atomic
+                    # compare-and-delete on release. blocking=False skips the
+                    # cycle if another worker holds the lock.
+                    lock = cache.lock(
+                        CLEANUP_LOCK_KEY,
+                        timeout=CLEANUP_LOCK_TTL_SECONDS,
+                    )
+
+                    if lock.acquire(blocking=False):
+                        logger.info(f'[ConferenceCleanup] Acquired lock, running cleanup (pid={os.getpid()})')
+                        try:
+                            from app.management.commands.cleanup_stale_conferences import Command
+                            hours = int(os.getenv('CONFERENCE_TIMEOUT_HOURS', 4))
+                            Command().handle(hours=hours, dry_run=False, verbosity=0)
+                        finally:
+                            try:
+                                lock.release()
+                            except Exception as e:
+                                logger.warning(
+                                    f'[ConferenceCleanup] Could not release lock, likely expired mid-run: {e}'
+                                )
+                    else:
+                        logger.debug(f'[ConferenceCleanup] Another worker holds the lock, skipping (pid={os.getpid()})')
                 except Exception as e:
                     logger.warning(f'[ConferenceCleanup] Error: {e}')
 
