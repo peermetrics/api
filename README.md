@@ -111,7 +111,7 @@ The table below lists all environment variables used by the API. Variables marke
 | `TASK_QUEUE_DOMAIN` | No | - | Domain for task queue callbacks (e.g. `https://api.example.com/`). Required when `USE_GOOGLE_TASK_QUEUE` is `True`. |
 | **Conference Cleanup** | | | |
 | `CONFERENCE_TIMEOUT_HOURS` | No | `4` | Close ongoing conferences with no activity for this many hours. |
-| `ENABLE_INLINE_CONFERENCE_CLEANUP` | No | `false` | Set to `true` to run cleanup in a background thread (dev/single-process only). |
+| `ENABLE_INLINE_CONFERENCE_CLEANUP` | No | `false` | Set to `true` to run cleanup in a background thread. Safe with multiple gunicorn workers and multiple API instances via a Redis distributed lock — only one worker per cycle acquires the lock and runs the cleanup. Requires Redis (`REDIS_HOST`). |
 | `CONFERENCE_CLEANUP_INTERVAL_SECONDS` | No | `3600` | How often the inline cleanup runs in seconds. Set to `0` to disable. Only applies when `ENABLE_INLINE_CONFERENCE_CLEANUP` is `true`. |
 
 ### Stale Conference Cleanup
@@ -124,13 +124,22 @@ python manage.py cleanup_stale_conferences --hours 2    # custom threshold
 python manage.py cleanup_stale_conferences --dry-run    # preview without changes
 ```
 
-**Development:** Set `ENABLE_INLINE_CONFERENCE_CLEANUP=true` to run the cleanup automatically in a background thread inside the API process.
+**Inline cleanup (recommended):** Set `ENABLE_INLINE_CONFERENCE_CLEANUP=true` to run the cleanup automatically in a background thread. This works safely with any number of gunicorn workers and any number of API instances because a Redis distributed lock ensures only one worker runs the cleanup per cycle.
 
-**Production (multi-worker):** Do not use the inline loop with multiple gunicorn workers as each worker runs its own cleanup loop. Instead, use an external scheduler:
+Requirements:
+- `REDIS_HOST` must be set (shared across all API instances — e.g. ElastiCache in AWS)
+- Redis is already used for rate limiting, so in most deployments no extra setup is needed
+
+How the coordination works:
+- Every `CONFERENCE_CLEANUP_INTERVAL_SECONDS`, every worker tries to acquire a lock (`cache.add('conference_cleanup_lock', ...)`)
+- Only one worker across all processes succeeds; the others skip that cycle
+- The lock auto-expires so a crashed worker cannot block future runs
+
+**External scheduler (alternative):** If you prefer not to run cleanup inside the API process, run the management command externally:
 
 - **Kubernetes:** CronJob running `python manage.py cleanup_stale_conferences`
 - **Docker Compose:** Host cron or a sidecar container on a timer
-- **ECS:** Scheduled task via EventBridge
+- **ECS:** Scheduled task via EventBridge, reusing the API task definition with a command override
 
 **Example `.env` file for local development:**
 
