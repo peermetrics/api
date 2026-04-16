@@ -86,6 +86,11 @@ class Issue(BaseModel):
     """
     TYPES_OF_ISSUES = TYPES_OF_ISSUES
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['conference', 'type'], name='idx_issue_conf_type'),
+        ]
+
     cache_keys = (
         sorted(('id',)),
     )
