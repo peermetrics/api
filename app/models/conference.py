@@ -38,6 +38,9 @@ class Conference(BaseModel):
     class Meta:
         db_table = 'conference'
         unique_together = (('conference_id', 'app'),)
+        indexes = [
+            models.Index(fields=['app', '-created_at'], name='idx_conf_app_created'),
+        ]
 
     cache_keys = (
         sorted(('id',)),

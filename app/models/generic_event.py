@@ -32,6 +32,11 @@ class GenericEvent(BaseModel):
         data: the data of the event
     """
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['app', '-created_at'], name='idx_genevent_app_created'),
+        ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     conference = models.ForeignKey('Conference', on_delete=models.CASCADE, null=False, related_name='events')
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, null=False, related_name='events')

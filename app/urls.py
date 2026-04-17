@@ -5,6 +5,7 @@ from .views.apps_reset_api_key_view import AppsResetApiKeyView
 from .views.apps_view import AppsView
 from .views.browser_event_view import BrowserEventView
 from .views.conference_view import ConferencesView
+from .views.conference_summary_view import ConferenceSummaryView
 from .views.connection_event_view import ConnectionEventView
 from .views.connection_view import ConnectionView
 from .views.issue_view import IssueView
@@ -55,6 +56,7 @@ urlpatterns = [
     path('apps/<uuid:pk>/reset-key', AppsResetApiKeyView.as_view(), name='app-reset-key'),
 
     path('conferences', ConferencesView.as_view(), name='conferences'),
+    path('conferences/summary', ConferenceSummaryView.as_view(), name='conferences-summary'),
     path('conferences/<uuid:pk>', ConferencesView.as_view(), name='conference'),
     path('conferences/<uuid:pk>/events', ConferenceEventsView.as_view(), name='conference-events'),
     path('conferences/<uuid:pk>/graphs', ConferenceGraphView.as_view(), name='conference-graphs'),
