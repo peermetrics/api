@@ -6,6 +6,9 @@ from .views.apps_view import AppsView
 from .views.browser_event_view import BrowserEventView
 from .views.conference_view import ConferencesView
 from .views.conference_summary_view import ConferenceSummaryView
+from .views.conference_duration_summary_view import ConferenceDurationSummaryView
+from .views.conference_participant_count_summary_view import ConferenceParticipantCountSummaryView
+from .views.issue_summary_view import IssueSummaryView, GetUserMediaSummaryView
 from .views.connection_event_view import ConnectionEventView
 from .views.connection_view import ConnectionView
 from .views.issue_view import IssueView
@@ -39,6 +42,8 @@ urlpatterns = [
     path('connections', ConnectionView.as_view(), name='connections'),
     path('connections/<uuid:pk>', ConnectionView.as_view(), name='connection'),
     path('issues', IssueView.as_view(), name='issues'),
+    path('issues/summary', IssueSummaryView.as_view(), name='issues-summary'),
+    path('issues/gum-summary', GetUserMediaSummaryView.as_view(), name='issues-gum-summary'),
     path('issues/<uuid:pk>', IssueView.as_view(), name='issue'),
 
     path('stats', StatsView.as_view(), name='stats'),
@@ -57,6 +62,8 @@ urlpatterns = [
 
     path('conferences', ConferencesView.as_view(), name='conferences'),
     path('conferences/summary', ConferenceSummaryView.as_view(), name='conferences-summary'),
+    path('conferences/duration-summary', ConferenceDurationSummaryView.as_view(), name='conferences-duration-summary'),
+    path('conferences/participant-count-summary', ConferenceParticipantCountSummaryView.as_view(), name='conferences-participant-count-summary'),
     path('conferences/<uuid:pk>', ConferencesView.as_view(), name='conference'),
     path('conferences/<uuid:pk>/events', ConferenceEventsView.as_view(), name='conference-events'),
     path('conferences/<uuid:pk>/graphs', ConferenceGraphView.as_view(), name='conference-graphs'),

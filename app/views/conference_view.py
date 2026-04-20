@@ -30,6 +30,9 @@ class ConferencesView(GenericView):
             'created_at__gte': 'created_at_gte',
             'created_at__lt': 'created_at_lt',
             'created_at__lte': 'created_at_lte',
+            'duration__gte': 'duration_gte',
+            'duration__lt': 'duration_lt',
+            'issues__code': 'issue_code',
         }
 
         for key, rkey in allowed_filters.items():
