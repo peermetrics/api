@@ -9,6 +9,8 @@ from .views.conference_summary_view import ConferenceSummaryView
 from .views.conference_duration_summary_view import ConferenceDurationSummaryView
 from .views.conference_participant_count_summary_view import ConferenceParticipantCountSummaryView
 from .views.issue_summary_view import IssueSummaryView, GetUserMediaSummaryView
+from .views.connection_summary_view import ConnectionSummaryView, ConnectionSetupTimeSummaryView
+from .views.session_summary_view import SessionSummaryView
 from .views.connection_event_view import ConnectionEventView
 from .views.connection_view import ConnectionView
 from .views.issue_view import IssueView
@@ -40,6 +42,8 @@ urlpatterns = [
     path('connection/batch', ConnectionEventBatchView.as_view(), name='connection-batch'),
 
     path('connections', ConnectionView.as_view(), name='connections'),
+    path('connections/summary', ConnectionSummaryView.as_view(), name='connections-summary'),
+    path('connections/setup-time-summary', ConnectionSetupTimeSummaryView.as_view(), name='connections-setup-time-summary'),
     path('connections/<uuid:pk>', ConnectionView.as_view(), name='connection'),
     path('issues', IssueView.as_view(), name='issues'),
     path('issues/summary', IssueSummaryView.as_view(), name='issues-summary'),
@@ -50,6 +54,7 @@ urlpatterns = [
     path('tracks', TracksView.as_view(), name='tracks'),
 
     path('sessions', SessionView.as_view(), name='sessions'),
+    path('sessions/summary', SessionSummaryView.as_view(), name='sessions-summary'),
     path('sessions/<uuid:pk>', SessionView.as_view(), name='session'),
 
     path('organizations', OrganizatonsView.as_view(), name='organizations'),

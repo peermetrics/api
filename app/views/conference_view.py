@@ -39,6 +39,12 @@ class ConferencesView(GenericView):
             if request.GET.get(rkey):
                 filters[key] = request.GET.get(rkey)
 
+        ids_param = request.GET.get('conference_ids')
+        if ids_param:
+            ids = [i for i in ids_param.split(',') if i]
+            if ids:
+                filters['id__in'] = ids
+
         if not filters:
             raise PMError(status=400, app_error=MISSING_PARAMETERS)
 
