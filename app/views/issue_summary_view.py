@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count
 
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
+from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
 from ..models.issue import Issue, ISSUES
 from .generic_view import GenericView
@@ -47,25 +48,27 @@ class IssueSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        try:
-            rows = (Issue.objects
-                .filter(**filters)
-                .values('code')
-                .annotate(count=Count('id'))
-                .order_by('-count'))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+        def compute():
+            try:
+                rows = (Issue.objects
+                    .filter(**filters)
+                    .values('code')
+                    .annotate(count=Count('id'))
+                    .order_by('-count'))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        data = [
-            {
-                'code': r['code'],
-                'title': ISSUES.get(r['code'], {}).get('title', r['code']),
-                'count': r['count'],
-            }
-            for r in rows
-        ]
+            return {'data': [
+                {
+                    'code': r['code'],
+                    'title': ISSUES.get(r['code'], {}).get('title', r['code']),
+                    'count': r['count'],
+                }
+                for r in rows
+            ]}
 
-        return JSONHttpResponse({'data': data})
+        payload, _ = cached_json('issues.summary', request, compute)
+        return JSONHttpResponse(payload)
 
 
 class GetUserMediaSummaryView(GenericView):
@@ -100,29 +103,34 @@ class GetUserMediaSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        from collections import Counter
-        name_counter = Counter()
-        message_by_name = {}
+        def compute():
+            from collections import Counter
+            name_counter = Counter()
+            message_by_name = {}
 
-        try:
-            issues = Issue.objects.filter(**filters).values_list('data', flat=True)
-            for data in issues:
-                if not data:
-                    continue
-                name = data.get('name') or 'Unknown'
-                name_counter[name] += 1
-                if name not in message_by_name and data.get('message'):
-                    message_by_name[name] = data['message']
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+            try:
+                issues = Issue.objects.filter(**filters).values_list('data', flat=True)
+                for data in issues:
+                    if not data:
+                        continue
+                    name = data.get('name') or 'Unknown'
+                    name_counter[name] += 1
+                    if name not in message_by_name and data.get('message'):
+                        message_by_name[name] = data['message']
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        data = [
-            {
-                'name': name,
-                'message': message_by_name.get(name, ''),
-                'count': count,
+            return {
+                'data': [
+                    {
+                        'name': name,
+                        'message': message_by_name.get(name, ''),
+                        'count': count,
+                    }
+                    for name, count in name_counter.most_common()
+                ],
+                'total': sum(name_counter.values()),
             }
-            for name, count in name_counter.most_common()
-        ]
 
-        return JSONHttpResponse({'data': data, 'total': sum(name_counter.values())})
+        payload, _ = cached_json('issues.gum_summary', request, compute)
+        return JSONHttpResponse(payload)

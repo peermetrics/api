@@ -6,6 +6,7 @@ from django.db.models import Case, CharField, Count, Exists, OuterRef, Value, Wh
 from django.db.models.functions import TruncDate
 
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
+from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
 from ..models.conference import Conference
 from ..models.issue import Issue
@@ -48,48 +49,50 @@ class ConferenceSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        try:
-            rows = (Conference.objects
-                .filter(**filters)
-                .annotate(
-                    day=TruncDate('created_at'),
-                    has_error=Exists(
-                        Issue.objects.filter(conference=OuterRef('pk'), type='e', is_active=True)
-                    ),
-                    has_warning=Exists(
-                        Issue.objects.filter(conference=OuterRef('pk'), type='w', is_active=True)
-                    ),
-                )
-                .annotate(
-                    status=Case(
-                        When(ongoing=True, then=Value('ongoing')),
-                        When(has_error=True, then=Value('error')),
-                        When(has_warning=True, then=Value('warning')),
-                        default=Value('success'),
-                        output_field=CharField(),
-                    ),
-                )
-                .values('day', 'status')
-                .annotate(count=Count('id'))
-                .order_by('day'))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+        def compute():
+            try:
+                rows = (Conference.objects
+                    .filter(**filters)
+                    .annotate(
+                        day=TruncDate('created_at'),
+                        has_error=Exists(
+                            Issue.objects.filter(conference=OuterRef('pk'), type='e', is_active=True)
+                        ),
+                        has_warning=Exists(
+                            Issue.objects.filter(conference=OuterRef('pk'), type='w', is_active=True)
+                        ),
+                    )
+                    .annotate(
+                        status=Case(
+                            When(ongoing=True, then=Value('ongoing')),
+                            When(has_error=True, then=Value('error')),
+                            When(has_warning=True, then=Value('warning')),
+                            default=Value('success'),
+                            output_field=CharField(),
+                        ),
+                    )
+                    .values('day', 'status')
+                    .annotate(count=Count('id'))
+                    .order_by('day'))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        buckets = defaultdict(lambda: {'success': 0, 'warning': 0, 'error': 0, 'ongoing': 0})
-        for row in rows:
-            day_key = row['day'].isoformat() if row['day'] else None
-            buckets[day_key][row['status']] = row['count']
+            buckets = defaultdict(lambda: {'success': 0, 'warning': 0, 'error': 0, 'ongoing': 0})
+            for row in rows:
+                day_key = row['day'].isoformat() if row['day'] else None
+                buckets[day_key][row['status']] = row['count']
 
-        data = [
-            {
-                'date': day,
-                'success': counts['success'],
-                'warning': counts['warning'],
-                'error': counts['error'],
-                'ongoing': counts['ongoing'],
-                'total': counts['success'] + counts['warning'] + counts['error'] + counts['ongoing'],
-            }
-            for day, counts in sorted(buckets.items(), key=lambda x: x[0] or '')
-        ]
+            return {'data': [
+                {
+                    'date': day,
+                    'success': counts['success'],
+                    'warning': counts['warning'],
+                    'error': counts['error'],
+                    'ongoing': counts['ongoing'],
+                    'total': counts['success'] + counts['warning'] + counts['error'] + counts['ongoing'],
+                }
+                for day, counts in sorted(buckets.items(), key=lambda x: x[0] or '')
+            ]}
 
-        return JSONHttpResponse({'data': data})
+        payload, _ = cached_json('conferences.summary', request, compute)
+        return JSONHttpResponse(payload)

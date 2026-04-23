@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Case, Count, IntegerField, When
 
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
+from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
 from ..models.connection import Connection, TYPE_OF_CONNECTIONS_ENUM
 from .generic_view import GenericView
@@ -81,34 +82,37 @@ class ConnectionSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        relay_code = TYPE_OF_CONNECTIONS_ENUM['relay']
+        def compute():
+            relay_code = TYPE_OF_CONNECTIONS_ENUM['relay']
+            try:
+                rows = (Connection.objects
+                    .filter(**filters)
+                    .exclude(type__isnull=True)
+                    .annotate(
+                        group=Case(
+                            When(type=relay_code, then=1),
+                            default=0,
+                            output_field=IntegerField(),
+                        ),
+                    )
+                    .values('group')
+                    .annotate(count=Count('id')))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        try:
-            rows = (Connection.objects
-                .filter(**filters)
-                .exclude(type__isnull=True)
-                .annotate(
-                    group=Case(
-                        When(type=relay_code, then=1),
-                        default=0,
-                        output_field=IntegerField(),
-                    ),
-                )
-                .values('group')
-                .annotate(count=Count('id')))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+            counts = {0: 0, 1: 0}
+            for row in rows:
+                counts[row['group']] = row['count']
 
-        counts = {0: 0, 1: 0}
-        for row in rows:
-            counts[row['group']] = row['count']
+            return {
+                'data': [
+                    {'name': 'Direct', 'count': counts[0]},
+                    {'name': 'Relayed', 'count': counts[1]},
+                ],
+            }
 
-        return JSONHttpResponse({
-            'data': [
-                {'name': 'Direct', 'count': counts[0]},
-                {'name': 'Relayed', 'count': counts[1]},
-            ],
-        })
+        payload, _ = cached_json('connections.summary', request, compute)
+        return JSONHttpResponse(payload)
 
 
 class ConnectionSetupTimeSummaryView(GenericView):
@@ -143,45 +147,48 @@ class ConnectionSetupTimeSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        counters = Counter()
-        conferences_per_bucket = {i: set() for i in range(len(SETUP_TIME_BUCKETS))}
+        def compute():
+            counters = Counter()
+            conferences_per_bucket = {i: set() for i in range(len(SETUP_TIME_BUCKETS))}
 
-        try:
-            rows = Connection.objects.filter(**filters).values_list(
-                'connection_info', 'conference_id'
-            )
-            for info, conf_id in rows:
-                if not info:
-                    continue
-                negotiations = info.get('negotiations') or []
-                if not negotiations:
-                    continue
-                first = negotiations[0]
-                if first.get('status') != 'connected':
-                    continue
-                start = _parse_time(first.get('start_time'))
-                end = _parse_time(first.get('end_time'))
-                if not start or not end:
-                    continue
-                ms = (end - start).total_seconds() * 1000
-                if ms < 0:
-                    continue
-                idx = _bucket_for(ms)
-                if idx is None:
-                    continue
-                counters[idx] += 1
-                conferences_per_bucket[idx].add(str(conf_id))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+            try:
+                rows = Connection.objects.filter(**filters).values_list(
+                    'connection_info', 'conference_id'
+                )
+                for info, conf_id in rows:
+                    if not info:
+                        continue
+                    negotiations = info.get('negotiations') or []
+                    if not negotiations:
+                        continue
+                    first = negotiations[0]
+                    if first.get('status') != 'connected':
+                        continue
+                    start = _parse_time(first.get('start_time'))
+                    end = _parse_time(first.get('end_time'))
+                    if not start or not end:
+                        continue
+                    ms = (end - start).total_seconds() * 1000
+                    if ms < 0:
+                        continue
+                    idx = _bucket_for(ms)
+                    if idx is None:
+                        continue
+                    counters[idx] += 1
+                    conferences_per_bucket[idx].add(str(conf_id))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        data = []
-        for i, b in enumerate(SETUP_TIME_BUCKETS):
-            data.append({
-                'range': b['title'],
-                'min_ms': b['min_ms'],
-                'max_ms': b['max_ms'],
-                'count': counters.get(i, 0),
-                'conference_ids': list(conferences_per_bucket[i]),
-            })
+            data = []
+            for i, b in enumerate(SETUP_TIME_BUCKETS):
+                data.append({
+                    'range': b['title'],
+                    'min_ms': b['min_ms'],
+                    'max_ms': b['max_ms'],
+                    'count': counters.get(i, 0),
+                    'conference_ids': list(conferences_per_bucket[i]),
+                })
+            return {'data': data}
 
-        return JSONHttpResponse({'data': data})
+        payload, _ = cached_json('connections.setup_time_summary', request, compute)
+        return JSONHttpResponse(payload)

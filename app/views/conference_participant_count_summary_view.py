@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, IntegerField, OuterRef, Subquery
 
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
+from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
 from ..models.conference import Conference
 from ..models.participant import Participant
@@ -45,33 +46,38 @@ class ConferenceParticipantCountSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        try:
-            per_conf = (Conference.objects
-                .filter(**filters)
-                .annotate(
-                    participants_count=Subquery(
-                        Participant.objects.filter(
-                            conferences=OuterRef('pk'),
-                            is_active=True,
-                        ).order_by().values('conferences').annotate(
-                            cnt=Count('id', distinct=True)
-                        ).values('cnt')[:1],
-                        output_field=IntegerField(),
-                    ),
-                )
-                .values_list('participants_count', flat=True))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+        def compute():
+            try:
+                per_conf = (Conference.objects
+                    .filter(**filters)
+                    .annotate(
+                        participants_count=Subquery(
+                            Participant.objects.filter(
+                                conferences=OuterRef('pk'),
+                                is_active=True,
+                            ).order_by().values('conferences').annotate(
+                                cnt=Count('id', distinct=True)
+                            ).values('cnt')[:1],
+                            output_field=IntegerField(),
+                        ),
+                    )
+                    .values_list('participants_count', flat=True))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        distribution = Counter()
-        total = 0
-        for count in per_conf:
-            distribution[count or 0] += 1
-            total += 1
+            distribution = Counter()
+            total = 0
+            for count in per_conf:
+                distribution[count or 0] += 1
+                total += 1
 
-        data = [
-            {'participants': n, 'conferences': c}
-            for n, c in sorted(distribution.items())
-        ]
+            return {
+                'data': [
+                    {'participants': n, 'conferences': c}
+                    for n, c in sorted(distribution.items())
+                ],
+                'total_conferences': total,
+            }
 
-        return JSONHttpResponse({'data': data, 'total_conferences': total})
+        payload, _ = cached_json('conferences.participant_count_summary', request, compute)
+        return JSONHttpResponse(payload)

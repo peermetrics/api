@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Case, Count, IntegerField, When
 
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
+from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
 from ..models.conference import Conference
 from .generic_view import GenericView
@@ -56,35 +57,37 @@ class ConferenceDurationSummaryView(GenericView):
             except ValueError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        whens = []
-        for i, b in enumerate(BUCKETS):
-            lo, hi = b['min_sec'], b['max_sec']
-            if hi is None:
-                whens.append(When(duration__gte=lo, then=i))
-            elif lo == 0:
-                whens.append(When(duration__lt=hi, then=i))
-            else:
-                whens.append(When(duration__gte=lo, duration__lt=hi, then=i))
+        def compute():
+            whens = []
+            for i, b in enumerate(BUCKETS):
+                lo, hi = b['min_sec'], b['max_sec']
+                if hi is None:
+                    whens.append(When(duration__gte=lo, then=i))
+                elif lo == 0:
+                    whens.append(When(duration__lt=hi, then=i))
+                else:
+                    whens.append(When(duration__gte=lo, duration__lt=hi, then=i))
 
-        try:
-            rows = (Conference.objects
-                .filter(**filters)
-                .annotate(bucket=Case(*whens, output_field=IntegerField()))
-                .values('bucket')
-                .annotate(count=Count('id'))
-                .order_by('bucket'))
-        except ValidationError:
-            raise PMError(status=400, app_error=INVALID_PARAMETERS)
+            try:
+                rows = (Conference.objects
+                    .filter(**filters)
+                    .annotate(bucket=Case(*whens, output_field=IntegerField()))
+                    .values('bucket')
+                    .annotate(count=Count('id'))
+                    .order_by('bucket'))
+            except ValidationError:
+                raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
-        counts_by_bucket = {r['bucket']: r['count'] for r in rows if r['bucket'] is not None}
-        data = [
-            {
-                'range': b['title'],
-                'min_sec': b['min_sec'],
-                'max_sec': b['max_sec'],
-                'count': counts_by_bucket.get(i, 0),
-            }
-            for i, b in enumerate(BUCKETS)
-        ]
+            counts_by_bucket = {r['bucket']: r['count'] for r in rows if r['bucket'] is not None}
+            return {'data': [
+                {
+                    'range': b['title'],
+                    'min_sec': b['min_sec'],
+                    'max_sec': b['max_sec'],
+                    'count': counts_by_bucket.get(i, 0),
+                }
+                for i, b in enumerate(BUCKETS)
+            ]}
 
-        return JSONHttpResponse({'data': data})
+        payload, _ = cached_json('conferences.duration_summary', request, compute)
+        return JSONHttpResponse(payload)
