@@ -111,7 +111,7 @@ class GetUserMediaSummaryView(GenericView):
             try:
                 issues = Issue.objects.filter(**filters).values_list('data', flat=True)
                 for data in issues:
-                    if not data:
+                    if not data or not isinstance(data, dict):
                         continue
                     name = data.get('name') or 'Unknown'
                     name_counter[name] += 1

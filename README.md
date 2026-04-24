@@ -987,6 +987,8 @@ Private endpoints are used by the web interface to query data. They require user
   - `GET`, query parameters:
     - `appId`: Filter by app
     - `participantId`: Filter by participant
+    - `issue_code`: Filter conferences that contain at least one active issue with this code
+      - Returns each conference once even if multiple matching issues exist
 
 - `/conferences/<uuid:pk>`: Get a specific conference
   - `GET`
