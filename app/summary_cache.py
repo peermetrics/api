@@ -33,12 +33,30 @@ CACHE_KEY_PARAMS = (
     'participantId',
 )
 
+# Params whose ISO timestamps should be truncated to the minute before hashing,
+# so that the dashboard's millisecond-precise `now - 30d` doesn't produce a
+# unique cache key per page load. Bucketing means two requests in the same
+# wall-clock minute share an entry; correctness still holds because the cache
+# entry's own TTL bounds staleness regardless of bucket size.
+BUCKETED_PARAMS = ('created_at_gte', 'created_at_lte')
+
+
+def _bucket_minute(value):
+    # ISO 8601: 2026-03-28T17:13:18.382Z -> 2026-03-28T17:13Z (first 16 chars
+    # are YYYY-MM-DDTHH:MM). Anything that doesn't match the layout is
+    # passed through unchanged so the key still differentiates malformed input.
+    if not value or len(value) < 16 or value[10] != 'T' or value[13] != ':':
+        return value
+    return value[:16] + 'Z'
+
 
 def _make_key(endpoint, request):
     parts = [endpoint]
     for name in CACHE_KEY_PARAMS:
         val = request.GET.get(name)
         if val:
+            if name in BUCKETED_PARAMS:
+                val = _bucket_minute(val)
             parts.append(f'{name}={val}')
     raw = '|'.join(parts)
     # Keep key short but unique; include a readable prefix for ops visibility.

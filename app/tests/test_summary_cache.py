@@ -51,6 +51,34 @@ class SummaryCacheTests(SimpleTestCase):
         )
         self.assertNotEqual(_make_key('issues.summary', a), _make_key('issues.summary', b))
 
+    def test_make_key_buckets_sub_minute_timestamp_precision(self):
+        # The dashboard sends `new Date().toISOString()` minus 30d, which is
+        # millisecond-precise. Two reloads seconds apart must collapse to the
+        # same key, otherwise prewarm cannot help and Redis fills with
+        # single-use entries.
+        rf = RequestFactory()
+        a = rf.get('/', {
+            'appId': '11111111-1111-1111-1111-111111111111',
+            'created_at_gte': '2026-03-28T17:13:18.382Z',
+        })
+        b = rf.get('/', {
+            'appId': '11111111-1111-1111-1111-111111111111',
+            'created_at_gte': '2026-03-28T17:13:42.001Z',
+        })
+        self.assertEqual(_make_key('sessions.summary', a), _make_key('sessions.summary', b))
+
+    def test_make_key_separates_distinct_minutes(self):
+        rf = RequestFactory()
+        a = rf.get('/', {
+            'appId': '11111111-1111-1111-1111-111111111111',
+            'created_at_gte': '2026-03-28T17:13:00Z',
+        })
+        b = rf.get('/', {
+            'appId': '11111111-1111-1111-1111-111111111111',
+            'created_at_gte': '2026-03-28T17:14:00Z',
+        })
+        self.assertNotEqual(_make_key('sessions.summary', a), _make_key('sessions.summary', b))
+
     def test_make_key_ignores_query_params_not_in_cache_key_params(self):
         rf = RequestFactory()
         base = rf.get('/', {'appId': '11111111-1111-1111-1111-111111111111'})
