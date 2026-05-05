@@ -30,11 +30,24 @@ class ConferencesView(GenericView):
             'created_at__gte': 'created_at_gte',
             'created_at__lt': 'created_at_lt',
             'created_at__lte': 'created_at_lte',
+            'duration__gte': 'duration_gte',
+            'duration__lt': 'duration_lt',
+            'issues__code': 'issue_code',
         }
 
         for key, rkey in allowed_filters.items():
             if request.GET.get(rkey):
                 filters[key] = request.GET.get(rkey)
+
+        filter_by_issue_code = bool(request.GET.get('issue_code'))
+        if filter_by_issue_code:
+            filters['issues__is_active'] = True
+
+        ids_param = request.GET.get('conference_ids')
+        if ids_param:
+            ids = [i for i in ids_param.split(',') if i]
+            if ids:
+                filters['id__in'] = ids
 
         if not filters:
             raise PMError(status=400, app_error=MISSING_PARAMETERS)
@@ -60,6 +73,8 @@ class ConferencesView(GenericView):
                     output_field=IntegerField(),
                 ),
             )
+            if filter_by_issue_code:
+                objs = objs.distinct()
         except ValidationError:
             raise PMError(status=400, app_error=INVALID_PARAMETERS)
 
