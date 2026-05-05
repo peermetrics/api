@@ -2,7 +2,7 @@ import datetime
 from collections import Counter
 
 from django.core.exceptions import ValidationError
-from ..conference_query import PARTICIPANTS_COUNT_ANNOTATION
+from ..conference_query import PARTICIPANTS_COUNT_SUBQUERY
 from ..errors import INVALID_PARAMETERS, MISSING_PARAMETERS, PMError
 from ..summary_cache import cached_json
 from ..utils import JSONHttpResponse
@@ -48,7 +48,7 @@ class ConferenceParticipantCountSummaryView(GenericView):
             try:
                 per_conf = (Conference.objects
                     .filter(**filters)
-                    .annotate(participants_count=PARTICIPANTS_COUNT_ANNOTATION)
+                    .annotate(participants_count=PARTICIPANTS_COUNT_SUBQUERY)
                     .values_list('participants_count', flat=True))
             except ValidationError:
                 raise PMError(status=400, app_error=INVALID_PARAMETERS)

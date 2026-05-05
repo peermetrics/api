@@ -141,3 +141,38 @@ class PR26RegressionTests(TestCase):
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["data"][0]["name"], "NotAllowedError")
         self.assertEqual(payload["data"][0]["count"], 1)
+
+    def test_conferences_participant_id_filter_preserves_full_participants_count(self):
+        """Count must not collapse to 1 when the list is filtered to one participant."""
+        conference = Conference.objects.create(
+            conference_id="conf-multi",
+            app=self.app,
+        )
+        participants = []
+        for i in range(3):
+            p = Participant.objects.create(
+                participant_id=f"user-{i}",
+                app=self.app,
+            )
+            p.conferences.add(conference)
+            Session.objects.create(
+                conference=conference,
+                participant=p,
+            )
+            participants.append(p)
+
+        response = self.client.get(
+            "/v1/conferences",
+            {
+                "appId": str(self.app.id),
+                "participantId": str(participants[0].id),
+                "limit": "50",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(len(payload["results"]), 1)
+        self.assertEqual(payload["results"][0]["id"], str(conference.id))
+        self.assertEqual(payload["results"][0]["participants_count"], 3)
