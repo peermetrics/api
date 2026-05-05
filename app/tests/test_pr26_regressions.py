@@ -143,7 +143,10 @@ class PR26RegressionTests(TestCase):
         self.assertEqual(payload["data"][0]["count"], 1)
 
     def test_conferences_participant_id_filter_preserves_full_participants_count(self):
-        """Count must not collapse to 1 when the list is filtered to one participant."""
+        """
+        When the conference list is filtered to one person (participantId),
+        participants_count must still reflect everyone in that conference, not 1.
+        """
         conference = Conference.objects.create(
             conference_id="conf-multi",
             app=self.app,
