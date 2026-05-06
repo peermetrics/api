@@ -1,14 +1,14 @@
 import datetime
 
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Exists, IntegerField, OuterRef, Subquery
+from django.db.models import Exists, OuterRef
 
+from ..conference_query import PARTICIPANTS_COUNT_SUBQUERY
 from ..errors import (INVALID_PARAMETERS, CONFERENCE_NOT_FOUND,
                       MISSING_PARAMETERS, PMError)
 from ..utils import JSONHttpResponse, serialize, paginate_and_serialize
 from ..models.conference import Conference
 from ..models.issue import Issue
-from ..models.participant import Participant
 from .generic_view import GenericView
 
 class ConferencesView(GenericView):
@@ -63,15 +63,7 @@ class ConferencesView(GenericView):
                 has_warnings=Exists(
                     Issue.objects.filter(conference=OuterRef('pk'), type='w', is_active=True)
                 ),
-                participants_count=Subquery(
-                    Participant.objects.filter(
-                        conferences=OuterRef('pk'),
-                        is_active=True,
-                    ).order_by().values('conferences').annotate(
-                        cnt=Count('id', distinct=True)
-                    ).values('cnt')[:1],
-                    output_field=IntegerField(),
-                ),
+                participants_count=PARTICIPANTS_COUNT_SUBQUERY,
             )
             if filter_by_issue_code:
                 objs = objs.distinct()
