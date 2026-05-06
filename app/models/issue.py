@@ -15,6 +15,24 @@ def _positive_stat_counter(val):
         return False
 
 
+def _candidate_pair_stats_indicate_established(conn):
+    """
+    RTC candidate-pair stats (merged into parsed stats connection block): require
+    succeeded plus a signal that the pair is actually in use, not only reported.
+    """
+    if not isinstance(conn, dict) or conn.get('state') != 'succeeded':
+        return False
+    if conn.get('nominated') is True:
+        return True
+    if conn.get('selected') is True:
+        return True
+    if _positive_stat_counter(conn.get('bytesSent')) or _positive_stat_counter(conn.get('bytesReceived')):
+        return True
+    if conn.get('currentRoundTripTime') is not None:
+        return True
+    return False
+
+
 def _stats_payload_indicates_established(data):
     """
     True only when parsed stats show ICE completion or media counters advancing —
@@ -26,7 +44,7 @@ def _stats_payload_indicates_established(data):
 
     conn = data.get('connection')
     if isinstance(conn, dict):
-        if conn.get('state') == 'succeeded':
+        if _candidate_pair_stats_indicate_established(conn):
             return True
         if _positive_stat_counter(conn.get('bytesReceived')) or _positive_stat_counter(
             conn.get('bytesSent')
