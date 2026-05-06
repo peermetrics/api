@@ -3,6 +3,7 @@ import uuid
 
 from django.contrib.postgres.fields import JSONField
 from django.db import models
+from django.db.models import Q
 
 from .basemodel import BaseModel
 
@@ -189,9 +190,30 @@ class Issue(BaseModel):
         # we're looking if all connections are in an unfinished state
         connection_bad_state = ['new', 'connecting', 'failed']
         connections = session.connections.all()
+        # Connections with stats events were actively polled via getStats; treat as established.
+        connection_ids_with_stats = set(
+            session.events.filter(type='stats')
+            .exclude(connection_id=None)
+            .values_list('connection_id', flat=True)
+        )
+        # If the peer leaves, the PC often ends in failed while rows still look "unfinished".
+        # Once we logged connected/completed, do not treat as never-connected.
+        connection_ids_ever_established = set(
+            session.events.filter(
+                Q(type='onconnectionstatechange', data='connected')
+                | Q(type='oniceconnectionstatechange', data='connected')
+                | Q(type='oniceconnectionstatechange', data='completed'),
+            )
+            .exclude(connection_id=None)
+            .values_list('connection_id', flat=True)
+        )
+        established_ids = connection_ids_with_stats | connection_ids_ever_established
         # if the user had at least one connection
         if len(connections) > 0:
-            bad_conns = [c for c in connections if c.state in connection_bad_state]
+            bad_conns = [
+                c for c in connections
+                if c.state in connection_bad_state and c.id not in established_ids
+            ]
 
             if len(connections) == len(bad_conns):
                 Issue(
