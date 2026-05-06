@@ -3,8 +3,97 @@ import uuid
 
 from django.contrib.postgres.fields import JSONField
 from django.db import models
+from django.db.models import Q
 
 from .basemodel import BaseModel
+
+
+def _positive_stat_counter(val):
+    try:
+        return float(val) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _candidate_pair_stats_indicate_established(conn):
+    """
+    RTC candidate-pair stats (merged into parsed stats connection block): require
+    succeeded plus a signal that the pair is actually in use, not only reported.
+    """
+    if not isinstance(conn, dict) or conn.get('state') != 'succeeded':
+        return False
+    if conn.get('nominated') is True:
+        return True
+    if conn.get('selected') is True:
+        return True
+    if _positive_stat_counter(conn.get('bytesSent')) or _positive_stat_counter(conn.get('bytesReceived')):
+        return True
+    if conn.get('currentRoundTripTime') is not None:
+        return True
+    return False
+
+
+def _stats_payload_indicates_established(data):
+    """
+    True only when parsed stats show ICE completion or media counters advancing —
+    not the first getStats() poll right after RTCPeerConnection creation (those rows
+    still use type=stats and carry minimal / empty connection snapshots).
+    """
+    if not isinstance(data, dict):
+        return False
+
+    conn = data.get('connection')
+    if isinstance(conn, dict):
+        if _candidate_pair_stats_indicate_established(conn):
+            return True
+        if _positive_stat_counter(conn.get('bytesReceived')) or _positive_stat_counter(
+            conn.get('bytesSent')
+        ):
+            return True
+        local_ct = (conn.get('local') or {}).get('candidateType')
+        remote_ct = (conn.get('remote') or {}).get('candidateType')
+        if local_ct and remote_ct:
+            return True
+
+    def media_blocks_have_traffic(block):
+        if not isinstance(block, dict):
+            return False
+        for direction in ('inbound', 'outbound'):
+            reports = block.get(direction)
+            if not isinstance(reports, list):
+                continue
+            for report in reports:
+                if not isinstance(report, dict):
+                    continue
+                if (
+                    _positive_stat_counter(report.get('bytesReceived'))
+                    or _positive_stat_counter(report.get('bytesSent'))
+                    or _positive_stat_counter(report.get('packetsReceived'))
+                    or _positive_stat_counter(report.get('packetsSent'))
+                ):
+                    return True
+        return False
+
+    for kind in ('audio', 'video'):
+        if media_blocks_have_traffic(data.get(kind)):
+            return True
+
+    remote = data.get('remote')
+    if isinstance(remote, dict):
+        for kind in ('audio', 'video'):
+            if media_blocks_have_traffic(remote.get(kind)):
+                return True
+
+    # Per-track stats rows (StatsView.save_event for each track) — flat RTP-ish dict
+    if (
+        _positive_stat_counter(data.get('bytesReceived'))
+        or _positive_stat_counter(data.get('bytesSent'))
+        or _positive_stat_counter(data.get('packetsReceived'))
+        or _positive_stat_counter(data.get('packetsSent'))
+    ):
+        return True
+
+    return False
 
 
 ISSUES = {
@@ -189,9 +278,31 @@ class Issue(BaseModel):
         # we're looking if all connections are in an unfinished state
         connection_bad_state = ['new', 'connecting', 'failed']
         connections = session.connections.all()
+        # Only stats batches that actually show ICE/RTP progress (not an empty early poll).
+        connection_ids_with_establishing_stats = set()
+        for ev in session.events.filter(type='stats').exclude(connection_id=None).only(
+            'connection_id', 'data'
+        ):
+            if ev.data and _stats_payload_indicates_established(ev.data):
+                connection_ids_with_establishing_stats.add(ev.connection_id)
+        # If the peer leaves, the PC often ends in failed while rows still look "unfinished".
+        # Once we logged connected/completed, do not treat as never-connected.
+        connection_ids_ever_established = set(
+            session.events.filter(
+                Q(type='onconnectionstatechange', data='connected')
+                | Q(type='oniceconnectionstatechange', data='connected')
+                | Q(type='oniceconnectionstatechange', data='completed'),
+            )
+            .exclude(connection_id=None)
+            .values_list('connection_id', flat=True)
+        )
+        established_ids = connection_ids_with_establishing_stats | connection_ids_ever_established
         # if the user had at least one connection
         if len(connections) > 0:
-            bad_conns = [c for c in connections if c.state in connection_bad_state]
+            bad_conns = [
+                c for c in connections
+                if c.state in connection_bad_state and c.id not in established_ids
+            ]
 
             if len(connections) == len(bad_conns):
                 Issue(

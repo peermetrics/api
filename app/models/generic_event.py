@@ -326,7 +326,11 @@ class GenericEvent(BaseModel):
                 self.conference.should_stop_call(now)
 
         elif self.type == 'oniceconnectionstatechange':
-            if self.data == 'failed':
+            # Mirror ICE success into Connection.state when onconnectionstatechange is missing.
+            if self.data in ('connected', 'completed') and self.connection:
+                self.connection.state = 'connected'
+                self.connection.update_last_negotiation('connected', now)
+            elif self.data == 'failed':
                 Issue(
                     code='ice_failed',
                     type=Issue.TYPES_OF_ISSUES['error'],
